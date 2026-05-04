@@ -2,27 +2,22 @@
 <html lang="zh-HK">
 <head>
   <meta charset="UTF-8">
-  <title>學校物資點名與租借</title>
+  <title>極速物資點名系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     * { -webkit-tap-highlight-color: transparent; }
-    .loader {
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid #3b82f6;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-    }
+    .loader { border: 5px solid #f3f3f3; border-top: 5px solid #3b82f6; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    /* 點擊反饋優化 */
+    button:active { transform: scale(0.96); transition: transform 0.1s; }
   </style>
 </head>
 <body class="bg-gray-100 text-gray-800 font-sans antialiased">
 
-  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center hidden">
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center">
     <div class="loader mb-4"></div>
-    <p class="text-white text-lg font-bold tracking-wider">處理中，請稍候...</p>
+    <p class="text-white text-lg font-bold tracking-wider">首次載入全校資料中...</p>
   </div>
 
   <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative pb-10">
@@ -36,7 +31,7 @@
       
       <!-- View: Dashboard -->
       <div id="view-dashboard" class="view-section">
-        <button onclick="startBorrowFlow()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-6 rounded-2xl shadow-lg text-2xl mb-8 transform active:scale-95 transition">
+        <button onclick="startBorrowFlow()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-6 rounded-2xl shadow-lg text-2xl mb-8">
           <i class="fas fa-plus-circle mr-2"></i> 新增租借
         </button>
 
@@ -47,19 +42,19 @@
         <div id="historyList" class="space-y-2 opacity-80"></div>
       </div>
 
-      <!-- View: Step 1 選擇班別 -->
+      <!-- View: Step 1 -->
       <div id="view-step1" class="view-section hidden">
         <div class="text-center mb-6 text-gray-600">請選擇學生所在班別</div>
         <div id="classList" class="grid grid-cols-3 gap-3"></div>
       </div>
 
-      <!-- View: Step 2 選擇學號 -->
+      <!-- View: Step 2 -->
       <div id="view-step2" class="view-section hidden">
         <div class="text-center mb-6 text-gray-600">請選擇 <span id="displaySelectedClass" class="font-bold text-blue-600"></span> 班學號</div>
         <div id="numList" class="grid grid-cols-4 gap-2"></div>
       </div>
 
-      <!-- View: Step 3 選擇物品 -->
+      <!-- View: Step 3 -->
       <div id="view-step3" class="view-section hidden">
         <div class="bg-blue-50 p-5 rounded-xl border border-blue-200 mb-8 shadow-sm">
           <div class="flex justify-between items-center mb-2">
@@ -71,16 +66,16 @@
 
         <div class="text-center mb-4 text-gray-600 font-bold">請選擇欲租借的物品 / 項目</div>
         <div class="grid grid-cols-1 gap-4">
-          <button onclick="selectItem('釘鞋')" class="bg-orange-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl active:scale-95 transition">
+          <button onclick="selectItem('釘鞋')" class="bg-orange-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl">
             <i class="fas fa-shoe-prints mr-2"></i> 釘鞋
           </button>
-          <button onclick="selectItem('洗手間')" class="bg-cyan-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl active:scale-95 transition">
+          <button onclick="selectItem('洗手間')" class="bg-cyan-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl">
             <i class="fas fa-restroom mr-2"></i> 洗手間
           </button>
         </div>
       </div>
 
-      <!-- View: Step 4 確認畫面 -->
+      <!-- View: Step 4 -->
       <div id="view-step4" class="view-section hidden">
         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
           <p class="font-bold text-yellow-800 text-lg mb-2">請確認以下資訊</p>
@@ -89,10 +84,10 @@
           <p class="text-gray-700"><strong>姓名：</strong> <span id="confirmName"></span></p>
           <p class="text-gray-700"><strong>物品：</strong> <span id="confirmItem" class="text-xl font-bold text-red-600"></span></p>
         </div>
-        <button onclick="submitBorrow()" class="w-full bg-green-500 text-white font-bold py-5 rounded-2xl shadow-lg text-xl mb-4 active:scale-95 transition">
+        <button onclick="submitBorrow()" class="w-full bg-green-500 text-white font-bold py-5 rounded-2xl shadow-lg text-xl mb-4">
           <i class="fas fa-check-circle mr-2"></i> 確認送出
         </button>
-        <button onclick="cancelBorrow()" class="w-full bg-gray-300 text-gray-700 font-bold py-4 rounded-2xl text-lg active:scale-95 transition">
+        <button onclick="cancelBorrow()" class="w-full bg-gray-300 text-gray-700 font-bold py-4 rounded-2xl text-lg">
           取消
         </button>
       </div>
@@ -101,17 +96,25 @@
   </div>
 
   <script>
+    // 你的專屬 GAS URL
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyO6J_2phrFWUntA-c2ysq_gDFyfCA83KVkzeVWoqMB8KYb_Y2rIjsaaaf0qSbZFqzu-w/exec';
 
     const state = {
       viewStack: ['view-dashboard'],
-      currentStudent: { classNum: '', studentNum: '', name: '', house: '', item: '' },
-      classes: ['1A','1B','1C','2A','2B','2C','3A','3B','3C','4A','4B','5A','5B','5C']
+      currentStudent: { classNum: '', studentNum: '', name: '', house: '', item: '', borrowTime: '' },
+      classes: ['1A','1B','1C','2A','2B','2C','3A','3B','3C','4A','4B','5A','5B','5C'],
+      dataCache: { active: [], history: [], students: {} } // 全域快取記憶體
     };
+
+    // 取得當下時間 (格式: yyyy/MM/dd HH:mm:ss)
+    function getFormattedTime() {
+      const now = new Date();
+      return `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+    }
 
     window.onload = function() {
       initClassButtons();
-      loadDashboard();
+      loadInitialData(); // 初始載入一次全校資料
     };
 
     function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
@@ -138,36 +141,41 @@
       if (state.viewStack.length > 1) {
         state.viewStack.pop(); 
         const prevView = state.viewStack.pop(); 
-        
         let title = '系統';
         if(prevView === 'view-dashboard') title = '儀表板';
         else if(prevView === 'view-step1') title = '選擇班別';
         else if(prevView === 'view-step2') title = '選擇學號';
         else if(prevView === 'view-step3') title = '選擇物品';
-        
         switchView(prevView, title);
       }
     }
 
-    function loadDashboard() {
+    // --- 首次全量載入 ---
+    function loadInitialData() {
       showLoading();
-      fetch(`${GAS_API_URL}?action=getDashboardData`)
-        .then(response => response.json())
+      fetch(`${GAS_API_URL}?action=getInitialData`)
+        .then(res => res.json())
         .then(res => {
-          if (res.status === 'success') { renderDashboard(res.data); } 
-          else { throw new Error(res.message); }
+          if (res.status === 'success') { 
+            state.dataCache = res.data; // 存入記憶體
+            renderDashboard(); 
+            hideLoading();
+          } else throw new Error(res.message);
         })
-        .catch(err => { alert('讀取失敗: ' + err.message); hideLoading(); });
+        .catch(err => { alert('載入失敗，請重整網頁。' + err.message); hideLoading(); });
     }
 
-    function renderDashboard(data) {
+    // --- 渲染畫面從「本地快取」讀取，0 延遲 ---
+    function renderDashboard() {
       const activeList = document.getElementById('activeList');
       const historyList = document.getElementById('historyList');
+      const activeData = state.dataCache.active;
+      const historyData = state.dataCache.history;
       
-      if (data.active.length === 0) {
+      if (activeData.length === 0) {
         activeList.innerHTML = '<p class="text-center text-gray-400 py-4">目前沒有租借紀錄</p>';
       } else {
-        activeList.innerHTML = data.active.map(record => `
+        activeList.innerHTML = activeData.map(record => `
           <div class="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow-sm flex justify-between items-center">
             <div>
               <div class="font-bold text-lg text-gray-800">${record.classNum} (${record.studentNum}) ${record.name}</div>
@@ -183,148 +191,130 @@
         `).join('');
       }
 
-      if (data.history.length === 0) {
+      if (historyData.length === 0) {
         historyList.innerHTML = '<p class="text-center text-gray-400 py-4">暫無歷史紀錄</p>';
       } else {
-        historyList.innerHTML = data.history.map(record => `
+        historyList.innerHTML = historyData.slice(0, 30).map(record => `
           <div class="bg-gray-50 p-3 rounded border border-gray-100 flex justify-between items-center text-sm">
             <div>
               <span class="font-bold text-gray-700">${record.classNum} ${record.name}</span> 
               借用 <span class="text-gray-600">${record.item}</span>
             </div>
-            <div class="text-gray-400 text-xs">${record.returnTime.split(' ')[1]} 還</div>
+            <div class="text-gray-400 text-xs">${record.returnTime ? record.returnTime.split(' ')[1] : ''} 還</div>
           </div>
         `).join('');
       }
-      hideLoading();
     }
 
+    // --- 樂觀更新：0秒歸還 ---
     function confirmReturn(record) {
       if(confirm(`確定要將 ${record.classNum} ${record.name} 的「${record.item}」設為已歸還嗎？`)) {
-        showLoading();
+        
+        // 1. 生成歸還時間
+        record.returnTime = getFormattedTime();
+
+        // 2. 本地端瞬間修改陣列
+        state.dataCache.active = state.dataCache.active.filter(r => !(r.classNum === record.classNum && r.studentNum === record.studentNum && r.item === record.item && r.borrowTime === record.borrowTime));
+        state.dataCache.history.unshift(record); // 加到歷史紀錄最上面
+        
+        // 3. 瞬間更新畫面 (不需 loading)
+        renderDashboard();
+
+        // 4. 背景非同步送出資料給 GAS
         fetch(GAS_API_URL, {
           method: 'POST',
           body: JSON.stringify({ action: 'returnItem', data: record })
-        })
-        .then(response => response.json())
-        .then(res => {
-          if (res.status === 'success') loadDashboard(); 
-          else throw new Error(res.message);
-        })
-        .catch(err => { alert('歸還失敗: ' + err.message); hideLoading(); });
+        }).catch(err => alert('背景歸還同步失敗，請檢查網路！'));
       }
     }
 
     function startBorrowFlow() {
-      state.currentStudent = { classNum: '', studentNum: '', name: '', house: '', item: '' };
+      state.currentStudent = { classNum: '', studentNum: '', name: '', house: '', item: '', borrowTime: '' };
       switchView('view-step1', '選擇班別');
     }
 
     function initClassButtons() {
       const container = document.getElementById('classList');
       container.innerHTML = state.classes.map(c => 
-        `<button onclick="selectClass('${c}')" class="bg-white border border-gray-300 text-gray-700 font-bold py-4 rounded-xl shadow-sm text-xl active:bg-blue-50 active:border-blue-300 transition">${c}</button>`
+        `<button onclick="selectClass('${c}')" class="bg-white border border-gray-300 text-gray-700 font-bold py-4 rounded-xl shadow-sm text-xl">${c}</button>`
       ).join('');
     }
 
+    // 0秒選班級 (從快取讀)
     function selectClass(c) {
       state.currentStudent.classNum = c;
       document.getElementById('displaySelectedClass').innerText = c;
       
-      showLoading();
-      fetch(`${GAS_API_URL}?action=getAvailableNumbers&classNum=${c}`)
-        .then(response => response.json())
-        .then(res => {
-          if (res.status === 'success') {
-            renderNumButtons(res.data);
-            hideLoading();
-            switchView('view-step2', '選擇學號');
-          } else { throw new Error(res.message); }
-        })
-        .catch(err => { alert('載入學號失敗: ' + err.message); hideLoading(); });
-    }
-
-    function renderNumButtons(numbers) {
+      const classData = state.dataCache.students[c] || {};
+      const numbers = Object.keys(classData).map(Number).sort((a,b)=>a-b);
+      
       const container = document.getElementById('numList');
       if (numbers.length === 0) {
         container.innerHTML = '<div class="col-span-4 text-center text-gray-500 py-4">此班級尚無學生資料</div>';
-        return;
+      } else {
+        container.innerHTML = numbers.map(n => 
+          `<button onclick="selectNum(${n})" class="bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-lg shadow-sm text-lg">${n}</button>`
+        ).join('');
       }
-      container.innerHTML = numbers.map(n => 
-        `<button onclick="selectNum(${n})" class="bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-lg shadow-sm text-lg active:bg-blue-50 transition">${n}</button>`
-      ).join('');
+      switchView('view-step2', '選擇學號');
     }
 
+    // 0秒選學號 (從快取讀)
     function selectNum(n) {
       state.currentStudent.studentNum = n;
-      showLoading();
+      const studentData = state.dataCache.students[state.currentStudent.classNum][n];
       
-      fetch(`${GAS_API_URL}?action=getStudentInfo&classNum=${state.currentStudent.classNum}&studentNum=${state.currentStudent.studentNum}`)
-        .then(response => response.json())
-        .then(res => {
-          if (res.status === 'success') {
-            const data = res.data;
-            
-            // 處理姓名加備註
-            let finalName = data.name;
-            if (data.remarks) { finalName += ` (${data.remarks})`; }
-            
-            state.currentStudent.name = finalName;
-            state.currentStudent.house = data.house;
-            
-            document.getElementById('stuClassNum').innerText = `${state.currentStudent.classNum} (${state.currentStudent.studentNum})`;
-            document.getElementById('stuName').innerText = finalName;
-            
-            // 處理社別顏色
-            const houseEl = document.getElementById('stuHouse');
-            let houseText = data.house ? data.house : '無';
-            if (!houseText.includes('社') && houseText !== '無') houseText += '社';
-            houseEl.innerText = houseText;
-            
-            houseEl.className = 'text-xs px-2 py-1 rounded font-bold'; 
-            if (houseText.includes('紅')) houseEl.classList.add('bg-red-100', 'text-red-800');
-            else if (houseText.includes('黃')) houseEl.classList.add('bg-yellow-100', 'text-yellow-800');
-            else if (houseText.includes('藍')) houseEl.classList.add('bg-blue-100', 'text-blue-800');
-            else if (houseText.includes('綠')) houseEl.classList.add('bg-green-100', 'text-green-800');
-            else houseEl.classList.add('bg-gray-100', 'text-gray-800');
-            
-            hideLoading();
-            switchView('view-step3', '選擇物品');
-          } else { throw new Error(res.message); }
-        })
-        .catch(err => { alert('查詢失敗: ' + err.message); hideLoading(); });
+      state.currentStudent.name = studentData.name;
+      state.currentStudent.house = studentData.house;
+      
+      document.getElementById('stuClassNum').innerText = `${state.currentStudent.classNum} (${state.currentStudent.studentNum})`;
+      document.getElementById('stuName').innerText = state.currentStudent.name;
+      
+      const houseEl = document.getElementById('stuHouse');
+      let houseText = state.currentStudent.house ? state.currentStudent.house : '無';
+      if (!houseText.includes('社') && houseText !== '無') houseText += '社';
+      houseEl.innerText = houseText;
+      
+      houseEl.className = 'text-xs px-2 py-1 rounded font-bold'; 
+      if (houseText.includes('紅')) houseEl.classList.add('bg-red-100', 'text-red-800');
+      else if (houseText.includes('黃')) houseEl.classList.add('bg-yellow-100', 'text-yellow-800');
+      else if (houseText.includes('藍')) houseEl.classList.add('bg-blue-100', 'text-blue-800');
+      else if (houseText.includes('綠')) houseEl.classList.add('bg-green-100', 'text-green-800');
+      else houseEl.classList.add('bg-gray-100', 'text-gray-800');
+      
+      switchView('view-step3', '選擇物品');
     }
 
     function selectItem(item) {
       state.currentStudent.item = item;
-      
       document.getElementById('confirmClass').innerText = state.currentStudent.classNum;
       document.getElementById('confirmNum').innerText = state.currentStudent.studentNum;
       document.getElementById('confirmName').innerText = state.currentStudent.name;
       document.getElementById('confirmItem').innerText = state.currentStudent.item;
-      
       switchView('view-step4', '確認租借');
     }
 
+    // --- 樂觀更新：0秒送出 ---
     function submitBorrow() {
-      showLoading();
+      // 1. 生成寫入時間
+      state.currentStudent.borrowTime = getFormattedTime();
+
+      // 2. 本地端瞬間加入陣列 (加到最上方)
+      const newRecord = Object.assign({}, state.currentStudent);
+      state.dataCache.active.unshift(newRecord);
+
+      // 3. 瞬間跳回儀表板並更新畫面 (0 秒等待)
+      renderDashboard();
+      switchView('view-dashboard', '儀表板');
+
+      // 4. 背景非同步送出資料給 GAS
       fetch(GAS_API_URL, {
         method: 'POST',
-        body: JSON.stringify({ action: 'borrowItem', data: state.currentStudent })
-      })
-      .then(response => response.json())
-      .then(res => {
-        if (res.status === 'success') {
-          switchView('view-dashboard', '儀表板');
-          loadDashboard(); 
-        } else { throw new Error(res.message); }
-      })
-      .catch(err => { alert('寫入失敗: ' + err.message); hideLoading(); });
+        body: JSON.stringify({ action: 'borrowItem', data: newRecord })
+      }).catch(err => alert('背景寫入同步失敗，請檢查網路！'));
     }
 
-    function cancelBorrow() {
-      switchView('view-dashboard', '儀表板');
-    }
+    function cancelBorrow() { switchView('view-dashboard', '儀表板'); }
   </script>
 </body>
 </html>
