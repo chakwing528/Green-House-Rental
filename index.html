@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>學校物資點名與租借</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* 防止點擊時出現藍色高光，提升 App 感 */
+    * { -webkit-tap-highlight-color: transparent; }
+    /* 自訂 Loading 旋轉動畫 */
+    .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3b82f6;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans antialiased">
+
+  <!-- Loading 遮罩 -->
+  <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex flex-col items-center justify-center hidden">
+    <div class="loader mb-4"></div>
+    <p class="text-white text-lg font-bold tracking-wider">處理中，請稍候...</p>
+  </div>
+
+  <div class="max-w-md mx-auto bg-white min-h-screen shadow-lg relative pb-10">
+    <!-- 頂部導覽列 -->
+    <header class="bg-blue-600 text-white p-4 sticky top-0 z-40 flex items-center shadow-md">
+      <button id="backBtn" class="hidden text-xl mr-4" onclick="goBack()"><i class="fas fa-chevron-left"></i></button>
+      <h1 id="pageTitle" class="text-xl font-bold flex-1 text-center">儀表板</h1>
+      <div class="w-6"></div> <!-- 佔位，讓標題置中 -->
+    </header>
+
+    <main class="p-4">
+      
+      <!-- View: Dashboard -->
+      <div id="view-dashboard" class="view-section">
+        <button onclick="startBorrowFlow()" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-6 rounded-2xl shadow-lg text-2xl mb-8 transform active:scale-95 transition">
+          <i class="fas fa-plus-circle mr-2"></i> 新增租借
+        </button>
+
+        <h2 class="text-lg font-bold text-gray-700 mb-3 border-b-2 border-blue-500 pb-1"><i class="fas fa-running text-blue-500 mr-2"></i>正在租借榜</h2>
+        <div id="activeList" class="space-y-3 mb-8">
+          <!-- Active Items 渲染區 -->
+        </div>
+
+        <h2 class="text-lg font-bold text-gray-700 mb-3 border-b-2 border-gray-400 pb-1"><i class="fas fa-history text-gray-500 mr-2"></i>近期歸還紀錄</h2>
+        <div id="historyList" class="space-y-2 opacity-80">
+          <!-- History Items 渲染區 -->
+        </div>
+      </div>
+
+      <!-- View: Step 1 選擇班別 -->
+      <div id="view-step1" class="view-section hidden">
+        <div class="text-center mb-6 text-gray-600">請選擇學生所在班別</div>
+        <div id="classList" class="grid grid-cols-3 gap-3">
+          <!-- 班別按鈕由 JS 產生 -->
+        </div>
+      </div>
+
+      <!-- View: Step 2 選擇學號 -->
+      <div id="view-step2" class="view-section hidden">
+        <div class="text-center mb-6 text-gray-600">請選擇 <span id="displaySelectedClass" class="font-bold text-blue-600"></span> 班學號</div>
+        <div id="numList" class="grid grid-cols-4 gap-2">
+          <!-- 學號按鈕由 JS 產生 -->
+        </div>
+      </div>
+
+      <!-- View: Step 3 & 4 學生資料與選擇物品 -->
+      <div id="view-step3" class="view-section hidden">
+        <!-- 學生資訊卡片 -->
+        <div class="bg-blue-50 p-5 rounded-xl border border-blue-200 mb-8 shadow-sm">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-gray-500 text-sm">學生身分</span>
+            <span id="stuHouse" class="bg-indigo-100 text-indigo-800 text-xs px-2 py-1 rounded font-bold"></span>
+          </div>
+          <h3 class="text-2xl font-bold text-gray-800"><span id="stuClassNum"></span> <span id="stuName"></span></h3>
+        </div>
+
+        <div class="text-center mb-4 text-gray-600 font-bold">請選擇欲租借的物品 / 項目</div>
+        <div class="grid grid-cols-1 gap-4">
+          <button onclick="selectItem('釘鞋')" class="bg-orange-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl active:scale-95 transition">
+            <i class="fas fa-shoe-prints mr-2"></i> 釘鞋
+          </button>
+          <button onclick="selectItem('洗手間')" class="bg-cyan-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl active:scale-95 transition">
+            <i class="fas fa-restroom mr-2"></i> 洗手間
+          </button>
+        </div>
+      </div>
+
+      <!-- View: Step 5 確認畫面 -->
+      <div id="view-step4" class="view-section hidden">
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+          <p class="font-bold text-yellow-800 text-lg mb-2">請確認以下資訊</p>
+          <p class="text-gray-700"><strong>班別：</strong> <span id="confirmClass"></span></p>
+          <p class="text-gray-700"><strong>學號：</strong> <span id="confirmNum"></span></p>
+          <p class="text-gray-700"><strong>姓名：</strong> <span id="confirmName"></span></p>
+          <p class="text-gray-700"><strong>物品：</strong> <span id="confirmItem" class="text-xl font-bold text-red-600"></span></p>
+        </div>
+        <button onclick="submitBorrow()" class="w-full bg-green-500 text-white font-bold py-5 rounded-2xl shadow-lg text-xl mb-4 active:scale-95 transition">
+          <i class="fas fa-check-circle mr-2"></i> 確認送出
+        </button>
+        <button onclick="cancelBorrow()" class="w-full bg-gray-300 text-gray-700 font-bold py-4 rounded-2xl text-lg active:scale-95 transition">
+          取消
+        </button>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    // --- 狀態管理 ---
+    const state = {
+      viewStack: ['view-dashboard'],
+      currentStudent: { classNum: '', studentNum: '', name: '', house: '', item: '' },
+      classes: ['1A','1B','1C','2A','2B','2C','3A','3B','3C','4A','4B','5A','5B','5C']
+    };
+
+    // --- 頁面初始化 ---
+    window.onload = function() {
+      initClassButtons();
+      initNumButtons();
+      loadDashboard();
+    };
+
+    // --- UI 輔助函式 ---
+    function showLoading() { document.getElementById('loadingOverlay').classList.remove('hidden'); }
+    function hideLoading() { document.getElementById('loadingOverlay').classList.add('hidden'); }
+    
+    function switchView(viewId, title) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById(viewId).classList.remove('hidden');
+      document.getElementById('pageTitle').innerText = title;
+      
+      const backBtn = document.getElementById('backBtn');
+      if (viewId === 'view-dashboard') {
+        backBtn.classList.add('hidden');
+        state.viewStack = ['view-dashboard']; // 重置堆疊
+      } else {
+        backBtn.classList.remove('hidden');
+        if (state.viewStack[state.viewStack.length - 1] !== viewId) {
+          state.viewStack.push(viewId);
+        }
+      }
+    }
+
+    function goBack() {
+      if (state.viewStack.length > 1) {
+        state.viewStack.pop(); // 移除當前頁面
+        const prevView = state.viewStack.pop(); // 取得上一頁並移除
+        
+        let title = '系統';
+        if(prevView === 'view-dashboard') title = '儀表板';
+        else if(prevView === 'view-step1') title = '選擇班別';
+        else if(prevView === 'view-step2') title = '選擇學號';
+        else if(prevView === 'view-step3') title = '選擇物品';
+        
+        switchView(prevView, title);
+      }
+    }
+
+    // --- 儀表板資料讀取 ---
+    function loadDashboard() {
+      showLoading();
+      google.script.run
+        .withSuccessHandler(renderDashboard)
+        .withFailureHandler(err => { alert('讀取失敗: ' + err); hideLoading(); })
+        .getDashboardData();
+    }
+
+    function renderDashboard(data) {
+      const activeList = document.getElementById('activeList');
+      const historyList = document.getElementById('historyList');
+      
+      // 渲染正在租借
+      if (data.active.length === 0) {
+        activeList.innerHTML = '<p class="text-center text-gray-400 py-4">目前沒有租借紀錄</p>';
+      } else {
+        activeList.innerHTML = data.active.map(record => `
+          <div class="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow-sm flex justify-between items-center">
+            <div>
+              <div class="font-bold text-lg text-gray-800">${record.classNum} (${record.studentNum}) ${record.name}</div>
+              <div class="text-sm text-gray-500 mt-1">
+                <span class="bg-gray-100 px-2 py-1 rounded mr-2 text-red-600 font-semibold">${record.item}</span>
+                <i class="far fa-clock"></i> ${record.borrowTime.split(' ')[1]}
+              </div>
+            </div>
+            <button onclick='confirmReturn(${JSON.stringify(record)})' class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-3 rounded-xl font-bold shadow-sm active:scale-95 transition">
+              歸還
+            </button>
+          </div>
+        `).join('');
+      }
+
+      // 渲染歷史紀錄
+      if (data.history.length === 0) {
+        historyList.innerHTML = '<p class="text-center text-gray-400 py-4">暫無歷史紀錄</p>';
+      } else {
+        historyList.innerHTML = data.history.map(record => `
+          <div class="bg-gray-50 p-3 rounded border border-gray-100 flex justify-between items-center text-sm">
+            <div>
+              <span class="font-bold text-gray-700">${record.classNum} ${record.name}</span> 
+              借用 <span class="text-gray-600">${record.item}</span>
+            </div>
+            <div class="text-gray-400 text-xs">${record.returnTime.split(' ')[1]} 還</div>
+          </div>
+        `).join('');
+      }
+      hideLoading();
+    }
+
+    // --- 歸還流程 ---
+    function confirmReturn(record) {
+      if(confirm(`確定要將 ${record.classNum} ${record.name} 的「${record.item}」設為已歸還嗎？`)) {
+        showLoading();
+        google.script.run
+          .withSuccessHandler(() => {
+            loadDashboard(); // 歸還成功後刷新畫面
+          })
+          .withFailureHandler(err => {
+            alert('歸還失敗: ' + err);
+            hideLoading();
+          })
+          .returnItem(record);
+      }
+    }
+
+    // --- 租借流程 (Steps) ---
+    function startBorrowFlow() {
+      state.currentStudent = { classNum: '', studentNum: '', name: '', house: '', item: '' };
+      switchView('view-step1', '選擇班別');
+    }
+
+    function initClassButtons() {
+      const container = document.getElementById('classList');
+      container.innerHTML = state.classes.map(c => 
+        `<button onclick="selectClass('${c}')" class="bg-white border border-gray-300 text-gray-700 font-bold py-4 rounded-xl shadow-sm text-xl active:bg-blue-50 active:border-blue-300 transition">${c}</button>`
+      ).join('');
+    }
+
+    function selectClass(c) {
+      state.currentStudent.classNum = c;
+      document.getElementById('displaySelectedClass').innerText = c;
+      switchView('view-step2', '選擇學號');
+    }
+
+    function initNumButtons() {
+      const container = document.getElementById('numList');
+      let html = '';
+      for(let i = 1; i <= 40; i++) {
+        html += `<button onclick="selectNum(${i})" class="bg-white border border-gray-200 text-gray-700 font-semibold py-3 rounded-lg shadow-sm text-lg active:bg-blue-50 transition">${i}</button>`;
+      }
+      container.innerHTML = html;
+    }
+
+    function selectNum(n) {
+      state.currentStudent.studentNum = n;
+      showLoading();
+      
+      // 呼叫 GAS 查詢學生資料
+      google.script.run
+        .withSuccessHandler(data => {
+          state.currentStudent.name = data.name;
+          state.currentStudent.house = data.house;
+          
+          // 填入 Step 3 畫面
+          document.getElementById('stuClassNum').innerText = `${state.currentStudent.classNum} (${state.currentStudent.studentNum})`;
+          document.getElementById('stuName').innerText = state.currentStudent.name;
+          document.getElementById('stuHouse').innerText = state.currentStudent.house ? `${state.currentStudent.house}社` : '';
+          
+          hideLoading();
+          switchView('view-step3', '選擇物品');
+        })
+        .withFailureHandler(err => {
+          alert('查詢失敗: ' + err.message);
+          hideLoading();
+        })
+        .getStudentInfo(state.currentStudent.classNum, state.currentStudent.studentNum);
+    }
+
+    function selectItem(item) {
+      state.currentStudent.item = item;
+      
+      // 填入 Step 4 畫面
+      document.getElementById('confirmClass').innerText = state.currentStudent.classNum;
+      document.getElementById('confirmNum').innerText = state.currentStudent.studentNum;
+      document.getElementById('confirmName').innerText = state.currentStudent.name;
+      document.getElementById('confirmItem').innerText = state.currentStudent.item;
+      
+      switchView('view-step4', '確認租借');
+    }
+
+    function submitBorrow() {
+      showLoading();
+      google.script.run
+        .withSuccessHandler(() => {
+          // 成功後回到 Dashboard
+          switchView('view-dashboard', '儀表板');
+          loadDashboard(); 
+        })
+        .withFailureHandler(err => {
+          alert('寫入失敗: ' + err);
+          hideLoading();
+        })
+        .borrowItem(state.currentStudent);
+    }
+
+    function cancelBorrow() {
+      switchView('view-dashboard', '儀表板');
+    }
+  </script>
+</body>
+</html>
