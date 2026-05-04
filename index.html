@@ -114,6 +114,9 @@
   </div>
 
   <script>
+    // ====== 你的專屬 Google Apps Script API 網址 ======
+    const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyO6J_2phrFWUntA-c2ysq_gDFyfCA83KVkzeVWoqMB8KYb_Y2rIjsaaaf0qSbZFqzu-w/exec';
+
     // --- 狀態管理 ---
     const state = {
       viewStack: ['view-dashboard'],
@@ -164,13 +167,22 @@
       }
     }
 
-    // --- 儀表板資料讀取 ---
+    // --- 儀表板資料讀取 (GET 請求) ---
     function loadDashboard() {
       showLoading();
-      google.script.run
-        .withSuccessHandler(renderDashboard)
-        .withFailureHandler(err => { alert('讀取失敗: ' + err); hideLoading(); })
-        .getDashboardData();
+      fetch(`${GAS_API_URL}?action=getDashboardData`)
+        .then(response => response.json())
+        .then(res => {
+          if (res.status === 'success') {
+            renderDashboard(res.data);
+          } else {
+            throw new Error(res.message);
+          }
+        })
+        .catch(err => { 
+          alert('讀取失敗: ' + err.message + '\n\n(如果一直失敗，請確認你的 GAS 已發布為「新版本」且權限設為「所有人」)'); 
+          hideLoading(); 
+        });
     }
 
     function renderDashboard(data) {
@@ -214,19 +226,24 @@
       hideLoading();
     }
 
-    // --- 歸還流程 ---
+    // --- 歸還流程 (POST 請求) ---
     function confirmReturn(record) {
       if(confirm(`確定要將 ${record.classNum} ${record.name} 的「${record.item}」設為已歸還嗎？`)) {
         showLoading();
-        google.script.run
-          .withSuccessHandler(() => {
+        fetch(GAS_API_URL, {
+          method: 'POST',
+          // 為了繞過某些瀏覽器的 CORS preflight，這裡不宣告 application/json
+          body: JSON.stringify({ action: 'returnItem', data: record })
+        })
+        .then(response => response.json())
+        .then(res => {
+          if (res.status === 'success') {
             loadDashboard(); // 歸還成功後刷新畫面
-          })
-          .withFailureHandler(err => {
-            alert('歸還失敗: ' + err);
-            hideLoading();
-          })
-          .returnItem(record);
+          } else {
+            throw new Error(res.message);
+          }
+        })
+        .catch(err => { alert('歸還失敗: ' + err.message); hideLoading(); });
       }
     }
 
@@ -262,25 +279,26 @@
       state.currentStudent.studentNum = n;
       showLoading();
       
-      // 呼叫 GAS 查詢學生資料
-      google.script.run
-        .withSuccessHandler(data => {
-          state.currentStudent.name = data.name;
-          state.currentStudent.house = data.house;
-          
-          // 填入 Step 3 畫面
-          document.getElementById('stuClassNum').innerText = `${state.currentStudent.classNum} (${state.currentStudent.studentNum})`;
-          document.getElementById('stuName').innerText = state.currentStudent.name;
-          document.getElementById('stuHouse').innerText = state.currentStudent.house ? `${state.currentStudent.house}社` : '';
-          
-          hideLoading();
-          switchView('view-step3', '選擇物品');
+      // 呼叫 GAS 查詢學生資料 (GET 請求)
+      fetch(`${GAS_API_URL}?action=getStudentInfo&classNum=${state.currentStudent.classNum}&studentNum=${state.currentStudent.studentNum}`)
+        .then(response => response.json())
+        .then(res => {
+          if (res.status === 'success') {
+            state.currentStudent.name = res.data.name;
+            state.currentStudent.house = res.data.house;
+            
+            // 填入 Step 3 畫面
+            document.getElementById('stuClassNum').innerText = `${state.currentStudent.classNum} (${state.currentStudent.studentNum})`;
+            document.getElementById('stuName').innerText = state.currentStudent.name;
+            document.getElementById('stuHouse').innerText = state.currentStudent.house ? `${state.currentStudent.house}社` : '';
+            
+            hideLoading();
+            switchView('view-step3', '選擇物品');
+          } else {
+            throw new Error(res.message);
+          }
         })
-        .withFailureHandler(err => {
-          alert('查詢失敗: ' + err.message);
-          hideLoading();
-        })
-        .getStudentInfo(state.currentStudent.classNum, state.currentStudent.studentNum);
+        .catch(err => { alert('查詢失敗: ' + err.message); hideLoading(); });
     }
 
     function selectItem(item) {
@@ -297,17 +315,21 @@
 
     function submitBorrow() {
       showLoading();
-      google.script.run
-        .withSuccessHandler(() => {
+      fetch(GAS_API_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'borrowItem', data: state.currentStudent })
+      })
+      .then(response => response.json())
+      .then(res => {
+        if (res.status === 'success') {
           // 成功後回到 Dashboard
           switchView('view-dashboard', '儀表板');
           loadDashboard(); 
-        })
-        .withFailureHandler(err => {
-          alert('寫入失敗: ' + err);
-          hideLoading();
-        })
-        .borrowItem(state.currentStudent);
+        } else {
+          throw new Error(res.message);
+        }
+      })
+      .catch(err => { alert('寫入失敗: ' + err.message); hideLoading(); });
     }
 
     function cancelBorrow() {
