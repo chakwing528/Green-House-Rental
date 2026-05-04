@@ -3,6 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <title>極速物資點名系統</title>
+  
+  <!-- ================= 加入主畫面 (PWA/iOS) 設定 ================= -->
+  <!-- 1. 設定 iPhone 桌面圖示 (請確保 icon.jpg 已上傳至 GitHub) -->
+  <link rel="apple-touch-icon" href="icon.png">
+  <link rel="icon" href="icon.png">
+  
+  <!-- 2. 讓 App 加入主畫面後名稱更簡短 -->
+  <meta name="apple-mobile-web-app-title" content="物資點名">
+  
+  <!-- 3. 隱藏 Safari 網址列，變成全螢幕 App 模式 -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  
+  <!-- 4. 設定頂部狀態列的顏色 (讓手機最上面的時間、電量顯示變白色) -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#2563EB"> <!-- 對應藍色 header -->
+  
+  <!-- 為了確保手機上的比例正確 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <!-- ========================================================= -->
+  
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
