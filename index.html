@@ -56,12 +56,12 @@
 
       <!-- View: Step 3 -->
       <div id="view-step3" class="view-section hidden">
-        <div class="bg-blue-50 p-5 rounded-xl border border-blue-200 mb-8 shadow-sm">
+        <div id="stuCard" class="p-5 rounded-xl border mb-8 shadow-sm">
           <div class="flex justify-between items-center mb-2">
-            <span class="text-gray-500 text-sm">學生身分</span>
+            <span class="text-sm opacity-60">學生身分</span>
             <span id="stuHouse" class="text-xs px-2 py-1 rounded font-bold"></span>
           </div>
-          <h3 class="text-2xl font-bold text-gray-800"><span id="stuClassNum"></span> <span id="stuName"></span></h3>
+          <h3 class="text-2xl font-bold"><span id="stuClassNum"></span> <span id="stuName"></span></h3>
         </div>
 
         <div class="text-center mb-4 text-gray-600 font-bold">請選擇欲租借的物品 / 項目</div>
@@ -72,6 +72,31 @@
           <button onclick="selectItem('洗手間')" class="bg-cyan-500 text-white font-bold py-8 rounded-2xl shadow-md text-2xl">
             <i class="fas fa-restroom mr-2"></i> 洗手間
           </button>
+        </div>
+      </div>
+
+      <!-- View: Step 3b - 尺碼選擇 -->
+      <div id="view-step3b" class="view-section hidden">
+        <div id="stuCard2" class="p-5 rounded-xl border mb-8 shadow-sm">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-sm opacity-60">學生身分</span>
+            <span id="stuHouse2" class="text-xs px-2 py-1 rounded font-bold"></span>
+          </div>
+          <h3 class="text-2xl font-bold"><span id="stuClassNum2"></span> <span id="stuName2"></span></h3>
+        </div>
+        <div class="text-center mb-4 text-gray-600 font-bold">請選擇釘鞋尺碼</div>
+        <div class="grid grid-cols-4 gap-3">
+          <button onclick="selectSize(36)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">36</button>
+          <button onclick="selectSize(37)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">37</button>
+          <button onclick="selectSize(38)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">38</button>
+          <button onclick="selectSize(39)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">39</button>
+          <button onclick="selectSize(40)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">40</button>
+          <button onclick="selectSize(41)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">41</button>
+          <button onclick="selectSize(42)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">42</button>
+          <button onclick="selectSize(43)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">43</button>
+          <button onclick="selectSize(44)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">44</button>
+          <button onclick="selectSize(45)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">45</button>
+          <button onclick="selectSize(46)" class="bg-orange-100 hover:bg-orange-200 text-orange-800 font-bold py-4 rounded-xl shadow-sm text-xl">46</button>
         </div>
       </div>
 
@@ -98,6 +123,8 @@
   <script>
     // 你的專屬 GAS URL
     const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbyO6J_2phrFWUntA-c2ysq_gDFyfCA83KVkzeVWoqMB8KYb_Y2rIjsaaaf0qSbZFqzu-w/exec';
+
+    let _activeRecords = [];
 
     const state = {
       viewStack: ['view-dashboard'],
@@ -146,6 +173,8 @@
         else if(prevView === 'view-step1') title = '選擇班別';
         else if(prevView === 'view-step2') title = '選擇學號';
         else if(prevView === 'view-step3') title = '選擇物品';
+        else if(prevView === 'view-step3b') title = '選擇尺碼';
+        else if(prevView === 'view-step4') title = '確認租借';
         switchView(prevView, title);
       }
     }
@@ -156,10 +185,11 @@
       fetch(`${GAS_API_URL}?action=getInitialData`)
         .then(res => res.json())
         .then(res => {
-          if (res.status === 'success') { 
+          if (res.status === 'success') {
             state.dataCache = res.data; // 存入記憶體
-            renderDashboard(); 
+            renderDashboard();
             hideLoading();
+            startPolling();
           } else throw new Error(res.message);
         })
         .catch(err => { alert('載入失敗，請重整網頁。' + err.message); hideLoading(); });
@@ -172,23 +202,32 @@
       const activeData = state.dataCache.active;
       const historyData = state.dataCache.history;
       
+      _activeRecords = activeData;
       if (activeData.length === 0) {
         activeList.innerHTML = '<p class="text-center text-gray-400 py-4">目前沒有租借紀錄</p>';
       } else {
-        activeList.innerHTML = activeData.map(record => `
-          <div class="bg-white border-l-4 border-blue-500 p-4 rounded-lg shadow-sm flex justify-between items-center">
+        activeList.innerHTML = activeData.map((record, index) => {
+          const h = record.house || '';
+          let cardCls, textCls, itemCls, timeCls, btnCls;
+          if (h.includes('紅'))      { cardCls='bg-red-500 border-red-700';    textCls='text-white'; itemCls='bg-white text-red-600';   timeCls='text-red-100';   btnCls='bg-white text-red-600 hover:bg-red-50'; }
+          else if (h.includes('黃')) { cardCls='bg-yellow-400 border-yellow-600'; textCls='text-gray-900'; itemCls='bg-white text-yellow-700'; timeCls='text-yellow-800'; btnCls='bg-white text-yellow-700 hover:bg-yellow-50'; }
+          else if (h.includes('藍')) { cardCls='bg-blue-600 border-blue-800';   textCls='text-white'; itemCls='bg-white text-blue-700';   timeCls='text-blue-100';  btnCls='bg-white text-blue-600 hover:bg-blue-50'; }
+          else if (h.includes('綠')) { cardCls='bg-green-500 border-green-700'; textCls='text-white'; itemCls='bg-white text-green-700'; timeCls='text-green-100'; btnCls='bg-white text-green-600 hover:bg-green-50'; }
+          else                       { cardCls='bg-white border-gray-300';      textCls='text-gray-800'; itemCls='bg-gray-100 text-red-600'; timeCls='text-gray-500'; btnCls='bg-blue-100 text-blue-700 hover:bg-blue-200'; }
+          return `
+          <div class="border-2 ${cardCls} p-4 rounded-xl shadow-sm flex justify-between items-center">
             <div>
-              <div class="font-bold text-lg text-gray-800">${record.classNum} (${record.studentNum}) ${record.name}</div>
-              <div class="text-sm text-gray-500 mt-1">
-                <span class="bg-gray-100 px-2 py-1 rounded mr-2 text-red-600 font-semibold">${record.item}</span>
-                <i class="far fa-clock"></i> ${record.borrowTime.split(' ')[1]}
+              <div class="font-bold text-lg ${textCls}">${record.classNum} (${record.studentNum}) ${record.name}</div>
+              <div class="text-sm mt-1 flex items-center gap-2">
+                <span class="${itemCls} px-2 py-0.5 rounded font-semibold text-xs">${record.item}</span>
+                <span class="${timeCls}"><i class="far fa-clock mr-1"></i>${record.borrowTime.split(' ')[1]}</span>
               </div>
             </div>
-            <button onclick='confirmReturn(${JSON.stringify(record)})' class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-3 rounded-xl font-bold shadow-sm active:scale-95 transition">
+            <button onclick="confirmReturn(${index})" class="${btnCls} px-4 py-3 rounded-xl font-bold shadow-sm active:scale-95 transition">
               歸還
             </button>
-          </div>
-        `).join('');
+          </div>`;
+        }).join('');
       }
 
       if (historyData.length === 0) {
@@ -207,7 +246,8 @@
     }
 
     // --- 樂觀更新：0秒歸還 ---
-    function confirmReturn(record) {
+    function confirmReturn(index) {
+      const record = _activeRecords[index];
       if(confirm(`確定要將 ${record.classNum} ${record.name} 的「${record.item}」設為已歸還嗎？`)) {
         
         // 1. 生成歸還時間
@@ -223,6 +263,7 @@
         // 4. 背景非同步送出資料給 GAS
         fetch(GAS_API_URL, {
           method: 'POST',
+          mode: 'no-cors',
           body: JSON.stringify({ action: 'returnItem', data: record })
         }).catch(err => alert('背景歸還同步失敗，請檢查網路！'));
       }
@@ -275,18 +316,48 @@
       if (!houseText.includes('社') && houseText !== '無') houseText += '社';
       houseEl.innerText = houseText;
       
-      houseEl.className = 'text-xs px-2 py-1 rounded font-bold'; 
-      if (houseText.includes('紅')) houseEl.classList.add('bg-red-100', 'text-red-800');
-      else if (houseText.includes('黃')) houseEl.classList.add('bg-yellow-100', 'text-yellow-800');
-      else if (houseText.includes('藍')) houseEl.classList.add('bg-blue-100', 'text-blue-800');
-      else if (houseText.includes('綠')) houseEl.classList.add('bg-green-100', 'text-green-800');
-      else houseEl.classList.add('bg-gray-100', 'text-gray-800');
-      
+      // 設定社卡顏色 (step3 & step3b 共用同一個 helper)
+      applyHouseStyle(houseText);
+
       switchView('view-step3', '選擇物品');
+    }
+
+    // 根據社名套用卡片顏色 (stuCard + stuCard2 + 社badge)
+    function applyHouseStyle(houseText) {
+      const cards = [document.getElementById('stuCard'), document.getElementById('stuCard2')];
+      const badges = [document.getElementById('stuHouse'), document.getElementById('stuHouse2')];
+
+      let cardBg, cardBorder, cardText, badgeBg, badgeText;
+      if (houseText.includes('紅'))      { cardBg='bg-red-500';    cardBorder='border-red-700';    cardText='text-white';    badgeBg='bg-white'; badgeText='text-red-600'; }
+      else if (houseText.includes('黃')) { cardBg='bg-yellow-400'; cardBorder='border-yellow-600'; cardText='text-gray-900'; badgeBg='bg-white'; badgeText='text-yellow-700'; }
+      else if (houseText.includes('藍')) { cardBg='bg-blue-600';   cardBorder='border-blue-800';   cardText='text-white';    badgeBg='bg-white'; badgeText='text-blue-700'; }
+      else if (houseText.includes('綠')) { cardBg='bg-green-500';  cardBorder='border-green-700';  cardText='text-white';    badgeBg='bg-white'; badgeText='text-green-700'; }
+      else                               { cardBg='bg-gray-200';   cardBorder='border-gray-400';   cardText='text-gray-800'; badgeBg='bg-gray-100'; badgeText='text-gray-700'; }
+
+      cards.forEach(el => { if(el) el.className = `p-5 rounded-xl border-2 mb-8 shadow-md ${cardBg} ${cardBorder} ${cardText}`; });
+      badges.forEach(el => { if(el) { el.className = `text-xs px-2 py-1 rounded font-bold ${badgeBg} ${badgeText}`; el.innerText = houseText; } });
+
+      // 同步 stuClassNum2 / stuName2
+      const c = document.getElementById('stuClassNum2'), n = document.getElementById('stuName2');
+      if(c) c.innerText = document.getElementById('stuClassNum').innerText;
+      if(n) n.innerText = document.getElementById('stuName').innerText;
     }
 
     function selectItem(item) {
       state.currentStudent.item = item;
+      if (item === '釘鞋') {
+        switchView('view-step3b', '選擇尺碼');
+      } else {
+        goToConfirm();
+      }
+    }
+
+    function selectSize(size) {
+      state.currentStudent.item = `釘鞋 (${size})`;
+      goToConfirm();
+    }
+
+    function goToConfirm() {
       document.getElementById('confirmClass').innerText = state.currentStudent.classNum;
       document.getElementById('confirmNum').innerText = state.currentStudent.studentNum;
       document.getElementById('confirmName').innerText = state.currentStudent.name;
@@ -301,7 +372,7 @@
 
       // 2. 本地端瞬間加入陣列 (加到最上方)
       const newRecord = Object.assign({}, state.currentStudent);
-      state.dataCache.active.unshift(newRecord);
+      state.dataCache.active.push(newRecord);
 
       // 3. 瞬間跳回儀表板並更新畫面 (0 秒等待)
       renderDashboard();
@@ -310,11 +381,32 @@
       // 4. 背景非同步送出資料給 GAS
       fetch(GAS_API_URL, {
         method: 'POST',
+        mode: 'no-cors',
         body: JSON.stringify({ action: 'borrowItem', data: newRecord })
       }).catch(err => alert('背景寫入同步失敗，請檢查網路！'));
     }
 
     function cancelBorrow() { switchView('view-dashboard', '儀表板'); }
+
+    // --- 每5秒輪詢同步（只讀 Active + History，不重新拉學生名單）---
+    function startPolling() {
+      setInterval(pollDashboard, 5000);
+    }
+
+    function pollDashboard() {
+      fetch(`${GAS_API_URL}?action=getActiveData`)
+        .then(res => res.json())
+        .then(res => {
+          if (res.status === 'success') {
+            state.dataCache.active = res.data.active;
+            state.dataCache.history = res.data.history;
+            if (state.viewStack[state.viewStack.length - 1] === 'view-dashboard') {
+              renderDashboard();
+            }
+          }
+        })
+        .catch(() => {}); // 網絡失敗靜默處理，不影響使用
+    }
   </script>
 </body>
 </html>
